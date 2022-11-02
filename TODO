@@ -1,0 +1,10 @@
+- fix frontend so it's somewhat pleasant (drag and drop, etc.)
+- make fly io two stage build
+- deploy automatically on merge to main
+- show recent builds / links to them
+- do some kind of overload detection (stop submitting jobs if
+  we have too many already)
+- multi-region? Back onto S3 or S3 clone? CDN?
+  (requires baking commit into location hash, probably)
+- automatically extract faces on build, and auto-trigger
+  redeploy on Sensor-Watch updates (how?)

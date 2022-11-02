@@ -1,0 +1,33 @@
+diff --git a/movement/make/Makefile b/movement/make/Makefile
+index bf9351e..0007df5 100644
+--- a/movement/make/Makefile
++++ b/movement/make/Makefile
+@@ -2,6 +2,10 @@
+ TOP = ../..
+ include $(TOP)/make.mk
+ 
++ifdef MOVEMENT_CONFIG
++CFLAGS += -DMOVEMENT_CONFIG='"$(MOVEMENT_CONFIG)"'
++endif
++
+ # If you add any other subdirectories with header files you wish to include, add them after ../
+ # Note that you will need to add a backslash at the end of any line you wish to continue, i.e.
+ # INCLUDES += \
+diff --git a/movement/movement.c b/movement/movement.c
+index 0ded11e..aacd09b 100644
+--- a/movement/movement.c
++++ b/movement/movement.c
+@@ -34,8 +34,12 @@
+ #include "filesystem.h"
+ #include "movement.h"
+ 
++#ifndef MOVEMENT_CONFIG
++#define MOVEMENT_CONFIG "movement_config.h"
++#endif
++
+ #ifndef MOVEMENT_FIRMWARE
+-#include "movement_config.h"
++#include MOVEMENT_CONFIG
+ #elif MOVEMENT_FIRMWARE == MOVEMENT_FIRMWARE_STANDARD
+ #include "alt_fw/standard.h"
+ #elif MOVEMENT_FIRMWARE == MOVEMENT_FIRMWARE_ALT_TIME

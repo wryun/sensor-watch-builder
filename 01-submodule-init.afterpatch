@@ -1,0 +1,14 @@
+diff --git a/rules.mk b/rules.mk
+index 2c4acec..c8e7fb5 100644
+--- a/rules.mk
++++ b/rules.mk
+@@ -39,7 +39,8 @@ $(BUILD)/$(BIN).uf2: $(BUILD)/$(BIN).bin
+ 
+ .phony: $(SUBMODULES)
+ $(SUBMODULES):
+-	git submodule update --init
++	#git submodule update --init
++	echo Skipping submodule init
+ 
+ install:
+ 	@$(UF2) -D $(BUILD)/$(BIN).uf2

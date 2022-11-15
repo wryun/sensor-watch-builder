@@ -83,23 +83,19 @@ if #errors > 0 then
   ngx.exit(ngx.HTTP_OK)
 end
 
-local md5 = require '/code/md5'
-local m = md5.new()
-for i, face in ipairs(faces) do
-  m:update(i .. face)
-end
-m:update(tostring(secondary_face_index))
+hash = ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
 
-dir = '/builds/' .. md5.tohex(m:finish()) .. '/'
+dir = '/builds/' .. hash .. '/'
 
 if args['flush'] then
   os.execute('rm -rf ' .. dir)
 end
 
-if exists(dir) then
+if exists(dir .. 'completed') then
   ngx.redirect(dir)
 end
 
+os.execute('rm -rf ' .. dir)
 code = os.execute('mkdir ' .. dir)
 if code == nil then
   ngx.status = 400
@@ -127,14 +123,26 @@ const watch_face_t watch_faces[] = {
 #endif // MOVEMENT_CONFIG_H_
 ]]
 
-movement_config_fname = dir .. 'movement_config.h'
-f = assert(io.open(movement_config_fname, 'w'))
+f = assert(io.open(dir .. 'movement_config.h', 'w'))
 f:write(movement_config)
+f:close()
+
+-- Generate list item in case build is successful
+html_item = [[
+    <li>
+      <a href="]] .. dir .. [[">
+        <strong>(]] .. table.concat(faces, ", ") .. [[) - (]] .. secondary_face_index .. [[)</strong>
+      </a>
+      -- ]] .. os.date("%c") .. [[
+    </li>
+]]
+f = assert(io.open(dir .. 'build.html', 'w'))
+f:write(html_item)
 f:close()
 
 
 -- Do the build
-build_exit_code = os.execute('setsid --fork flock /tmp/build-sensor-watch /code/build.sh ' .. dir)
+build_exit_code = os.execute('setsid --fork /code/start-build.sh ' .. dir)
 
 if build_exit_code == nil then
   os.execute('rm -rf ' .. dir)
@@ -145,8 +153,58 @@ if build_exit_code == nil then
   ngx.exit(ngx.HTTP_OK)
 end
 
-ngx.say('<html><body>')
-ngx.say('<p>Wait a couple of seconds (I hope), then <a href="' .. dir .. '">click here</a>.<p>')
-ngx.say('<p>If that 404s after 30 seconds, something terrible has happened. It\'s probably your fault, and you should be sad.</p>')
-ngx.say('</body></html>')
+-- spinner from https://loading.io/css/
+ngx.say([[
+<html>
+<head>
+<style>
+.lds-dual-ring {
+  display: inline-block;
+  width: 80px;
+  height: 80px;
+}
+.lds-dual-ring:after {
+  content: " ";
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 8px;
+  border-radius: 50%;
+  border: 6px solid #000;
+  border-color: #000 transparent #000 transparent;
+  animation: lds-dual-ring 1.2s linear infinite;
+}
+@keyframes lds-dual-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>
+<script>
+
+async function checkFinished() {
+  try {
+    const response = await fetch("]] .. dir .. [[")
+    if (response.status === 200) {
+      window.location.replace("]] .. dir .. [[")
+    }
+  } catch (e) {
+  } finally {
+    setTimeout(checkFinished, 1000);
+  }
+}
+
+setTimeout(checkFinished, 2000);
+
+</script>
+</head>
+<body>
+<div class="lds-dual-ring"></div>
+<p>Wait a couple of seconds (I hope) and the JS should take you to a build, or <a href="]] .. dir .. [[">click here</a></p>
+<p>If that page is still not there after 30 seconds, something terrible has happened. It\'s probably your fault, and you should be sad.</p>
+</body></html>
+]])
 ngx.exit(ngx.HTTP_OK)

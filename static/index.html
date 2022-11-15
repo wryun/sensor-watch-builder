@@ -1,13 +1,121 @@
+<!DOCTYPE html>
 <html>
+
 <head>
+
 <title>Sensor Watch Builder</title>
+
+<script>
+function dragstart_handler(ev) {
+  ev.dataTransfer.setData("text/plain", ev.target.id)
+  ev.dataTransfer.dropEffect = "copy"
+}
+
+function dragover_handler(ev) {
+  ev.preventDefault()
+}
+
+function drop_handler(ev) {
+  ev.preventDefault()
+  const dropped = event.dataTransfer.getData("text/plain")
+  const el = document.createElement("option")
+  el.selected = true
+  el.value = dropped
+  el.append(document.createTextNode(dropped))
+  el.addEventListener("mousedown", (ev) => ev.preventDefault())
+  ev.target.append(el)
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("js-section").hidden = false
+  const available_faces = document.getElementById("available_faces")
+
+  for (const option of document.querySelectorAll("#faces > option")) {
+    const el = document.createElement("button")
+    el.id = option.value
+    el.draggable = true
+    el.innerHTML = option.innerHTML
+    el.addEventListener("dragstart", dragstart_handler)
+    available_faces.append(el)
+  }
+
+  for (const option of document.querySelectorAll(".facetarget > option")) {
+    option.remove()
+  }
+
+  for (const face_target of document.querySelectorAll(".facetarget")) {
+    face_target.addEventListener("drop", drop_handler)
+    face_target.addEventListener("dragover", dragover_handler)
+  }
+
+  const clear_button = document.getElementById("clear")
+  clear_button.hidden = false
+  clear_button.addEventListener("click", () => {
+    for (const option of document.querySelectorAll(".facetarget > option")) {
+      option.remove()
+    }
+  })
+})
+</script>
+
+<style>
+main {
+  display: grid;
+  grid-template-columns: 30% 30% 40%;
+}
+
+select {
+  width: 90%;
+  font-size: large;
+}
+
+#available_faces > button {
+  padding: 5px;
+  margin: 5px;
+  font-size: large;
+}
+
+#faces {
+  height: 350px;
+}
+
+#secondary_faces {
+  height: 350px;
+}
+
+.action-buttons {
+  padding: 5px;
+  margin: 10px;
+  font-size: x-large;
+}
+</style>
+
 </head>
+
 <body>
 
-<form action="/build" method="post">
 
-<label for="faces">Faces</label>
-<select name="faces" id="faces" multiple required size="40">
+<section>
+<h1>Sensor Watch Builder</h1>
+
+<p>Build firmware for the <a href="https://sensorwatch.net/">Sensor Watch</a> online. Experimental.
+<a href="https://github.com/wryun/sensor-watch-builder/">Source code on GitHub</a>.
+</section>
+
+<main>
+<section id="js-section" hidden>
+<h3>Drag faces from here...</h3>
+<div name="available_faces" id="available_faces" multiple required>
+</div>
+</section>
+
+<section>
+<h3>Selected faces...</h3>
+
+<form action="/build" method="post">
+<h5><label for="faces">Faces</label></h5>
+<p>
+<select class="facetarget" name="faces" id="faces" multiple required>
 <option value="simple_clock_face" selected>simple_clock_face</option>
 <option value="world_clock_face" selected>world_clock_face</option>
 <option value="preferences_face">preferences_face</option>
@@ -43,8 +151,9 @@
 <option value="ratemeter_face">ratemeter_face</option>
 </select>
 
-<label for="secondary_faces">Secondary Faces</label>
-<select name="secondary_faces" id="secondary_faces" multiple size="40">
+<h5><label for="secondary_faces">Secondary Faces</label></h5>
+<p>
+<select class="facetarget" name="secondary_faces" id="secondary_faces" multiple>
 <option value="simple_clock_face">simple_clock_face</option>
 <option value="world_clock_face">world_clock_face</option>
 <option value="preferences_face" selected>preferences_face</option>
@@ -80,9 +189,23 @@
 <option value="ratemeter_face">ratemeter_face</option>
 </select>
 
-<input type="submit" value="Build a watch!">
+<p>
+<button class="action-buttons" id="clear" hidden>Clear</button>
+<input class="action-buttons" type="submit" id="build" value="Build a watch!">
 
 </form>
+</section>
+
+<section>
+
+<h2>Previous builds</h2>
+<ul>
+    <!--# include file="/builds/list.html" -->
+</ul>
+</section>
+
+
+</main>
 
 </body>
 </html>

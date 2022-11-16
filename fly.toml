@@ -18,8 +18,10 @@ processes = []
   protocol = "tcp"
   script_checks = []
   [services.concurrency]
-    hard_limit = 25
-    soft_limit = 20
+    # Set high because we have _long_ requests for builds.
+    # And we're running nginx/openresty, so, y'know...
+    hard_limit = 500
+    soft_limit = 400
     type = "connections"
 
   [[services.ports]]

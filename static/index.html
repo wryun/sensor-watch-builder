@@ -26,6 +26,10 @@ function drop_handler(ev) {
   ev.target.append(el)
 }
 
+// Force us not to use the backwards cache
+// (to reset spinner and selected items on new build).
+window.addEventListener("unload", () => {});
+
 window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("js-section").hidden = false
   const available_faces = document.getElementById("available_faces")

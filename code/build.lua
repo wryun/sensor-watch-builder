@@ -3,7 +3,7 @@ local available_faces = require 'available_faces'
 local resty_lock = require 'resty.lock'
 local shell = require 'resty.shell'
 
-function render(filename, env)
+local function render(filename, env)
   local file, err = io.open('/templates/' .. filename)
   if not file then
     return nil, err
@@ -19,7 +19,7 @@ function render(filename, env)
   return s, err
 end
 
-function render_to_file(template_filename, output, env)
+local function render_to_file(template_filename, output, env)
   local s, err = render(template_filename, env)
   if not s then
     return false, err
@@ -40,15 +40,15 @@ function render_to_file(template_filename, output, env)
   return true, nil
 end
 
-function abort_with_errors(errors)
+local function abort_with_errors(errors)
   ngx.status = 503
-  result, err = render('errors.html', {errors = errors})
+  local result, err = render('errors.html', {errors = errors})
   assert(result, "Unable to render error template (now we're in trouble!): " .. tostring(err))
   ngx.say(result)
   ngx.exit(ngx.HTTP_OK)
 end
 
-function exists(path)
+local function exists(path)
   local file = io.open(path, "r")
   if (file ~= nil) then
     file:close()
@@ -59,7 +59,7 @@ function exists(path)
 end
 
 -- make them all arrays
-function normalise_post_arg(arg)
+local function normalise_post_arg(arg)
   if arg == nil then
     return {}
   elseif type(arg) == 'string' then
@@ -69,7 +69,7 @@ function normalise_post_arg(arg)
   end
 end
 
-function process_post_args(args)
+local function process_post_args(args)
   local errors = {}
   if args['faces'] == nil then
     table.insert(errors, 'No faces provided')
@@ -100,31 +100,20 @@ function process_post_args(args)
   end
 end
 
-function generate_build_hash(faces, secondary_face_index)
+local function generate_build_hash(faces, secondary_face_index)
   return ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
 end
 
-function update_build_list(dir, faces, secondary_face_index)
-  local lock, err = resty_lock:new('build_locks')
-  if lock then
-    _, err = lock:lock('build_list')
-  end
-
-  if err then
-    -- This is not a problem for the user, so silently fail for them.
-    ngx.log(ngx.ERR, 'failed to acquire lock: ' .. tostring(err))
-    return
-  end
-
+local function update_build_list(dir, faces, secondary_face_index)
   local previous_builds = '/builds/list.html'
   local count = 0
-  -- First, keep the last 50 lines.
+  -- First, keep the last 30 lines.
   local lines = {}
   local pb_file = assert(io.open(previous_builds))
   for line in pb_file:lines() do
     count = count + 1
     table.insert(lines, line)
-    if (count >= 49) then
+    if (count >= 29) then
       break
     end
   end
@@ -135,45 +124,76 @@ function update_build_list(dir, faces, secondary_face_index)
     pb_file:write(line)
   end
   pb_file:close()
-  if not lock:unlock('build_list') then
-    ngx.log(ngx.ERR, 'failed to release lock')
-  end
 end
 
-function build(dir, faces, secondary_face_index)
+local function build(dir, faces, secondary_face_index)
   assert(shell.run('rm -rf ' .. dir .. ' && mkdir ' .. dir))
   assert(render_to_file('movement_config.h', dir .. 'movement_config.h', {faces = faces, secondary_face_index = secondary_face_index}))
 
-  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec flock -w 1 -E 250 /tmp/build-sensor-watch /code/build.sh "]] .. dir .. [["]], nil, 35000)
-  if status == 250 then
-    ngx.log(ngx.ERR, tostring(err))
-    abort_with_errors({'Timed out waiting for build lock. System probably overloaded. Try again later.'})
-  elseif ok == nil then
-    ngx.log(ngx.CRIT, 'internal build error: ' .. tostring(reason))
-    abort_with_errors({'Internal error trying to start build: ' .. tostring(reason)})
+  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec /code/build.sh "]] .. dir .. [["]], nil, 20000)
+  if ok == nil then
+    error('Internal error trying to start build: ' .. tostring(reason))
   end
 
   return ok, stdout, stderr
 end
 
-
--- MAIN STUFF
-post_args = ngx.req.get_post_args()
-faces, secondary_face_index = process_post_args(post_args)
-local dir = '/builds/' .. generate_build_hash(faces, secondary_face_index) .. '/'
-if not exists(dir .. 'completed') or post_args['flush'] then
-  ok, stdout, stderr = build(dir, faces, secondary_face_index)
-  if ok then
-    assert(render_to_file('success_build.html', dir .. 'index.html', {}))
-    update_build_list(dir, faces, secondary_face_index)
-  else
-    ngx.log(ngx.WARN, 'Build failed: ' .. tostring(stderr))
-    assert(render_to_file('fail_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
+-- echoing a Python with block - trying to make sure we clean up our lock regardless of what happens in fn.
+local function with_lock(fn)
+  local lock, err = resty_lock:new('build_locks', {exptime = 30, timeout = 40, step = 0.5, max_step = 1})
+  if lock == nil then
+    error(err)
+  end
+  local elapsed
+  elapsed, err = lock:lock('build')
+  if elapsed == nil then
+    return false, err
+  end
+  local ok
+  ok, err = xpcall(fn, debug.traceback)
+  -- not much to be done if the unlock fails here...
+  lock:unlock()
+  if not ok then
+    error(err)
   end
 
-  -- touch file so we know this folder is "good"
-  local completed_file = assert(io.open(dir .. 'completed', 'w'))
-  completed_file:close()
+  return true, nil
+end
+
+
+-- MAIN STUFF
+local faces, secondary_face_index = process_post_args(ngx.req.get_post_args())
+local dir = '/builds/' .. generate_build_hash(faces, secondary_face_index) .. '/'
+
+if not exists(dir .. 'completed') then
+  -- only one build at a time, please.
+  -- NB we could support multiple builds targeting different dirs easily enough, but it
+  -- might overload the system, so it's nicer to do one at a time. We could get cheap
+  -- paralellism here by having a random number added to the lock, I guess...
+  -- (as long as we also added a 'dir' lock and a 'build_list' lock separately).
+  local ok, err = with_lock(function ()
+    -- if someone got in before us and finished the job, nothing to do here.
+    if exists(dir .. 'completed') then
+      return
+    end
+
+    local ok, stdout, stderr = build(dir, faces, secondary_face_index)
+    if ok then
+      assert(render_to_file('success_build.html', dir .. 'index.html', {}))
+      update_build_list(dir, faces, secondary_face_index)
+    else
+      ngx.log(ngx.WARN, 'Build failed: ' .. tostring(stderr))
+      assert(render_to_file('fail_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
+    end
+
+    -- touch file so we know this dir is "good"
+    local completed_file = assert(io.open(dir .. 'completed', 'w'))
+    completed_file:close()
+  end)
+
+  if not ok then
+    abort_with_errors({'Unable to acquire lock; builder probably overloaded: ' .. tostring(err)})
+  end
 end
 
 ngx.redirect(dir)

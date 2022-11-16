@@ -52,9 +52,12 @@ RUN for f in *.afterpatch; do patch -p1 < "$f"; done
 
 WORKDIR /
 RUN mkdir /builds
-RUN chown www-data:www-data /builds
+RUN touch /builds/list.html
+RUN chown -R www-data:www-data /builds
 RUN chown -R www-data:www-data /emcache
 COPY nginx.conf /usr/local/openresty/nginx/conf/
 COPY static static
+RUN sed -n '/#include/{s/#include "\(.*\).h"/  <option value="\1">\1<\/option>/;p}' Sensor-Watch/movement/movement_faces.h > static/available_faces.html
+COPY templates templates
 COPY code code
-
+RUN sed -n -e '/#include/{s/#include "\(.*\).h"/  \1 = true,/;p}' -e '1i return {' -e ';$a }' Sensor-Watch/movement/movement_faces.h > code/available_faces.lua

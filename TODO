@@ -1,8 +1,9 @@
+- make everything draggable; add target boxes
+- force regeneration on clone (just specify hash?)
+- auto-trigger redeploy on Sensor-Watch updates (how?)
 - fix frontend so it looks prettier
 - make fly io two stage build
 - deploy automatically on merge to main
 - overload protection? Simplest would be bail immediately on low memory with a 500.
 - multi-region? Back onto S3 or S3 clone? CDN?
   (requires baking commit into location hash, probably)
-- automatically extract faces on build, and auto-trigger
-  redeploy on Sensor-Watch updates (how?)

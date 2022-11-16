@@ -1,0 +1,10 @@
+    <li>
+      <a href="<%= dir %>">
+        <strong>
+         <% for _, face in ipairs(faces) do %>
+           <%= face %>;
+         <% end %>
+         (<%= secondary_face_index %>)</strong>
+      </a>
+      <br><%= os.date("%c") %>
+    </li>

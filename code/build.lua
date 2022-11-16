@@ -1,210 +1,179 @@
-valid_faces = {
-  simple_clock_face = true,
-  world_clock_face = true,
-  preferences_face = true,
-  set_time_face = true,
-  pulsometer_face = true,
-  thermistor_readout_face = true,
-  thermistor_logging_face = true,
-  thermistor_testing_face = true,
-  character_set_face = true,
-  beats_face = true,
-  day_one_face = true,
-  voltage_face = true,
-  stopwatch_face = true,
-  totp_face = true,
-  totp_face_lfs = true,
-  lis2dw_logging_face = true,
-  demo_face = true,
-  hello_there_face = true,
-  sunrise_sunset_face = true,
-  countdown_face = true,
-  counter_face = true,
-  blinky_face = true,
-  moon_phase_face = true,
-  accelerometer_data_acquisition_face = true,
-  mars_time_face = true,
-  orrery_face = true,
-  astronomy_face = true,
-  tomato_face = true,
-  probability_face = true,
-  wake_face = true,
-  frequency_correction_face = true,
-  alarm_face = true,
-  ratemeter_face = true,
-}
+local etlua = require 'etlua'
+local available_faces = require 'available_faces'
+local resty_lock = require 'resty.lock'
+local shell = require 'resty.shell'
+
+function render(filename, env)
+  local file, err = io.open('/templates/' .. filename)
+  if not file then
+    return nil, err
+  end
+
+  local s = file:read("*a")
+  
+  file:close()
+  s, err = etlua.render(s, env)
+  if err then
+    ngx.log(ngx.CRIT, tostring(err))
+  end
+  return s, err
+end
+
+function render_to_file(template_filename, output, env)
+  local s, err = render(template_filename, env)
+  if not s then
+    return false, err
+  end
+
+  if type(output) == 'string' then
+    output, err = io.open(output, "w")
+    if not output then
+      return false, err
+    end
+    output:write(s)
+    output:close()
+  else
+    output:write(s)
+  end
+
+
+  return true, nil
+end
+
+function abort_with_errors(errors)
+  ngx.status = 503
+  result, err = render('errors.html', {errors = errors})
+  assert(result, "Unable to render error template (now we're in trouble!): " .. tostring(err))
+  ngx.say(result)
+  ngx.exit(ngx.HTTP_OK)
+end
 
 function exists(path)
   local file = io.open(path, "r")
   if (file ~= nil) then
-    io.close(file)
+    file:close()
     return true
   else
     return false
   end
 end
 
-local args = ngx.req.get_post_args()
-errors = {}
-if args['faces'] == nil then
-  table.insert(errors, 'No faces provided')
-elseif type(args['faces']) == 'string' then
-  faces = {args['faces']}
-else
-  faces = args['faces']
+-- make them all arrays
+function normalise_post_arg(arg)
+  if arg == nil then
+    return {}
+  elseif type(arg) == 'string' then
+    return {arg}
+  elseif arg then
+    return arg
+  end
 end
 
-secondary_face_index = #args['faces']
+function process_post_args(args)
+  local errors = {}
+  if args['faces'] == nil then
+    table.insert(errors, 'No faces provided')
+  end
 
-if args['secondary_faces'] ~= nil then
-  if type(args['secondary_faces']) == 'string' then
-    table.insert(faces, args['secondary_faces'])
-  else
-    for _, face in ipairs(args['secondary_faces']) do
-      table.insert(faces, face)
+  local faces = normalise_post_arg(args['faces'])
+  local secondary_faces = normalise_post_arg(args['secondary_faces'])
+  local combined_faces = {}
+
+  for _, faces in ipairs({faces, secondary_faces}) do
+    for _, face in ipairs(faces) do
+      if available_faces[face] then
+        table.insert(combined_faces, face)
+      else
+        table.insert(errors, 'Face ' .. face .. ' not recognised')
+      end
     end
   end
-end
 
-for _, face in ipairs(faces) do
-  if valid_faces[face] == nil then
-    -- do html escape face so we can display
-    table.insert(errors, 'Face not recognised')
+  if #errors > 0 then
+    abort_with_errors(errors)
+  end
+
+  if #secondary_faces == 0 then
+    return combined_faces, 0
+  else 
+    return combined_faces, #faces
   end
 end
 
-if #errors > 0 then
-  ngx.status = 503
-  ngx.say('<html><body><ul>')
-  for _, error in ipairs(errors) do
-    ngx.say('<li>' .. error)
+function generate_build_hash(faces, secondary_face_index)
+  return ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
+end
+
+function update_build_list(dir, faces, secondary_face_index)
+  local lock, err = resty_lock:new('build_locks')
+  if lock then
+    _, err = lock:lock('build_list')
   end
-  ngx.say('</ul></body></html>')
-  ngx.exit(ngx.HTTP_OK)
+
+  if err then
+    -- This is not a problem for the user, so silently fail for them.
+    ngx.log(ngx.ERR, 'failed to acquire lock: ' .. tostring(err))
+    return
+  end
+
+  local previous_builds = '/builds/list.html'
+  local count = 0
+  -- First, keep the last 50 lines.
+  local lines = {}
+  local pb_file = assert(io.open(previous_builds))
+  for line in pb_file:lines() do
+    count = count + 1
+    table.insert(lines, line)
+    if (count >= 49) then
+      break
+    end
+  end
+  pb_file:close()
+  pb_file = assert(io.open(previous_builds, 'w'))
+  assert(render_to_file('build_record.html', pb_file, {dir = dir, faces = faces, secondary_face_index = secondary_face_index}))
+  for _, line in ipairs(lines) do
+    pb_file:write(line)
+  end
+  pb_file:close()
+  if not lock:unlock('build_list') then
+    ngx.log(ngx.ERR, 'failed to release lock')
+  end
 end
 
-hash = ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
+function build(dir, faces, secondary_face_index)
+  assert(shell.run('rm -rf ' .. dir .. ' && mkdir ' .. dir))
+  assert(render_to_file('movement_config.h', dir .. 'movement_config.h', {faces = faces, secondary_face_index = secondary_face_index}))
 
-dir = '/builds/' .. hash .. '/'
+  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec flock -w 1 -E 250 /tmp/build-sensor-watch /code/build.sh "]] .. dir .. [["]], nil, 35000)
+  if status == 250 then
+    ngx.log(ngx.ERR, tostring(err))
+    abort_with_errors({'Timed out waiting for build lock. System probably overloaded. Try again later.'})
+  elseif ok == nil then
+    ngx.log(ngx.CRIT, 'internal build error: ' .. tostring(reason))
+    abort_with_errors({'Internal error trying to start build: ' .. tostring(reason)})
+  end
 
-if args['flush'] then
-  os.execute('rm -rf ' .. dir)
-end
-
-if exists(dir .. 'completed') then
-  ngx.redirect(dir)
-end
-
-os.execute('rm -rf ' .. dir)
-code = os.execute('mkdir ' .. dir)
-if code == nil then
-  ngx.status = 400
-  ngx.say('<html><body>')
-  ngx.say('<p>Unable to create build dir</p>')
-  ngx.say('</body></html>')
-  ngx.exit(ngx.HTTP_OK)
+  return ok, stdout, stderr
 end
 
 
--- Generate config file
-movement_config = [[
-#ifndef MOVEMENT_CONFIG_H_
-#define MOVEMENT_CONFIG_H_
+-- MAIN STUFF
+post_args = ngx.req.get_post_args()
+faces, secondary_face_index = process_post_args(post_args)
+local dir = '/builds/' .. generate_build_hash(faces, secondary_face_index) .. '/'
+if not exists(dir .. 'completed') or post_args['flush'] then
+  ok, stdout, stderr = build(dir, faces, secondary_face_index)
+  if ok then
+    assert(render_to_file('success_build.html', dir .. 'index.html', {}))
+    update_build_list(dir, faces, secondary_face_index)
+  else
+    ngx.log(ngx,WARN, 'Build failed: ' .. tostring(stderr))
+    assert(render_to_file('fail_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
+  end
 
-#include "movement_faces.h"
-
-const watch_face_t watch_faces[] = {
-]] .. table.concat(faces, ", ") .. [[ ,
-};
-
-#define MOVEMENT_NUM_FACES (sizeof(watch_faces) / sizeof(watch_face_t))
-#define MOVEMENT_SECONDARY_FACE_INDEX ]] .. secondary_face_index .. [[
-
-#endif // MOVEMENT_CONFIG_H_
-]]
-
-f = assert(io.open(dir .. 'movement_config.h', 'w'))
-f:write(movement_config)
-f:close()
-
--- Generate list item in case build is successful
-html_item = [[
-    <li>
-      <a href="]] .. dir .. [[">
-        <strong>(]] .. table.concat(faces, ", ") .. [[) - (]] .. secondary_face_index .. [[)</strong>
-      </a>
-      -- ]] .. os.date("%c") .. [[
-    </li>
-]]
-f = assert(io.open(dir .. 'build.html', 'w'))
-f:write(html_item)
-f:close()
-
-
--- Do the build
-build_exit_code = os.execute('setsid --fork /code/start-build.sh ' .. dir)
-
-if build_exit_code == nil then
-  os.execute('rm -rf ' .. dir)
-  ngx.status = 503
-  ngx.say('<html><body>')
-  ngx.say('Failed to trigger build')
-  ngx.say('</body></html>')
-  ngx.exit(ngx.HTTP_OK)
+  -- touch file so we know this folder is "good"
+  local completed_file = assert(io.open(dir .. 'completed', 'w'))
+  completed_file:close()
 end
 
--- spinner from https://loading.io/css/
-ngx.say([[
-<html>
-<head>
-<style>
-.lds-dual-ring {
-  display: inline-block;
-  width: 80px;
-  height: 80px;
-}
-.lds-dual-ring:after {
-  content: " ";
-  display: block;
-  width: 64px;
-  height: 64px;
-  margin: 8px;
-  border-radius: 50%;
-  border: 6px solid #000;
-  border-color: #000 transparent #000 transparent;
-  animation: lds-dual-ring 1.2s linear infinite;
-}
-@keyframes lds-dual-ring {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-</style>
-<script>
-
-async function checkFinished() {
-  try {
-    const response = await fetch("]] .. dir .. [[")
-    if (response.status === 200) {
-      window.location.replace("]] .. dir .. [[")
-    }
-  } catch (e) {
-  } finally {
-    setTimeout(checkFinished, 1000);
-  }
-}
-
-setTimeout(checkFinished, 2000);
-
-</script>
-</head>
-<body>
-<div class="lds-dual-ring"></div>
-<p>Wait a couple of seconds (I hope) and the JS should take you to a build, or <a href="]] .. dir .. [[">click here</a></p>
-<p>If that page is still not there after 30 seconds, something terrible has happened. It\'s probably your fault, and you should be sad.</p>
-</body></html>
-]])
-ngx.exit(ngx.HTTP_OK)
+ngx.redirect(dir)

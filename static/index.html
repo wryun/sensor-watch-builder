@@ -55,6 +55,15 @@ window.addEventListener("DOMContentLoaded", () => {
       option.remove()
     }
   })
+
+  const build_form = document.getElementById("build-form")
+  const submit_button = document.getElementById("build")
+  const spinner = document.getElementById("spinner")
+  build_form.addEventListener('submit', ev => {
+    submit_button.hidden = true
+    clear_button.hidden = true
+    spinner.hidden = false
+  });
 })
 </script>
 
@@ -88,6 +97,34 @@ select {
   margin: 10px;
   font-size: x-large;
 }
+
+/* spinner from https://loading.io/css/ */
+.lds-dual-ring {
+  display: inline-block;
+  width: 80px;
+  height: 80px;
+}
+.lds-dual-ring:after {
+  content: " ";
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 8px;
+  border-radius: 50%;
+  border: 6px solid #000;
+  border-color: #000 transparent #000 transparent;
+  animation: lds-dual-ring 1.2s linear infinite;
+}
+@keyframes lds-dual-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>
+
 </style>
 
 </head>
@@ -112,86 +149,23 @@ select {
 <section>
 <h3>Selected faces...</h3>
 
-<form action="/build" method="post">
+<form id="build-form" action="/build" method="post">
 <h5><label for="faces">Faces</label></h5>
 <p>
 <select class="facetarget" name="faces" id="faces" multiple required>
-<option value="simple_clock_face" selected>simple_clock_face</option>
-<option value="world_clock_face" selected>world_clock_face</option>
-<option value="preferences_face">preferences_face</option>
-<option value="set_time_face">set_time_face</option>
-<option value="pulsometer_face">pulsometer_face</option>
-<option value="thermistor_readout_face">thermistor_readout_face</option>
-<option value="thermistor_logging_face">thermistor_logging_face</option>
-<option value="thermistor_testing_face">thermistor_testing_face</option>
-<option value="character_set_face">character_set_face</option>
-<option value="beats_face">beats_face</option>
-<option value="day_one_face">day_one_face</option>
-<option value="voltage_face">voltage_face</option>
-<option value="stopwatch_face">stopwatch_face</option>
-<option value="totp_face">totp_face</option>
-<option value="totp_face_lfs">totp_face_lfs</option>
-<option value="lis2dw_logging_face">lis2dw_logging_face</option>
-<option value="demo_face">demo_face</option>
-<option value="hello_there_face">hello_there_face</option>
-<option value="sunrise_sunset_face">sunrise_sunset_face</option>
-<option value="countdown_face">countdown_face</option>
-<option value="counter_face">counter_face</option>
-<option value="blinky_face">blinky_face</option>
-<option value="moon_phase_face">moon_phase_face</option>
-<option value="accelerometer_data_acquisition_face">accelerometer_data_acquisition_face</option>
-<option value="mars_time_face">mars_time_face</option>
-<option value="orrery_face">orrery_face</option>
-<option value="astronomy_face">astronomy_face</option>
-<option value="tomato_face">tomato_face</option>
-<option value="probability_face">probability_face</option>
-<option value="wake_face">wake_face</option>
-<option value="frequency_correction_face">frequency_correction_face</option>
-<option value="alarm_face">alarm_face</option>
-<option value="ratemeter_face">ratemeter_face</option>
+    <!--# include file="available_faces.html" -->
 </select>
 
 <h5><label for="secondary_faces">Secondary Faces</label></h5>
 <p>
 <select class="facetarget" name="secondary_faces" id="secondary_faces" multiple>
-<option value="simple_clock_face">simple_clock_face</option>
-<option value="world_clock_face">world_clock_face</option>
-<option value="preferences_face" selected>preferences_face</option>
-<option value="set_time_face" selected>set_time_face</option>
-<option value="pulsometer_face">pulsometer_face</option>
-<option value="thermistor_readout_face">thermistor_readout_face</option>
-<option value="thermistor_logging_face">thermistor_logging_face</option>
-<option value="thermistor_testing_face">thermistor_testing_face</option>
-<option value="character_set_face">character_set_face</option>
-<option value="beats_face">beats_face</option>
-<option value="day_one_face">day_one_face</option>
-<option value="voltage_face">voltage_face</option>
-<option value="stopwatch_face">stopwatch_face</option>
-<option value="totp_face">totp_face</option>
-<option value="totp_face_lfs">totp_face_lfs</option>
-<option value="lis2dw_logging_face">lis2dw_logging_face</option>
-<option value="demo_face">demo_face</option>
-<option value="hello_there_face">hello_there_face</option>
-<option value="sunrise_sunset_face">sunrise_sunset_face</option>
-<option value="countdown_face">countdown_face</option>
-<option value="counter_face">counter_face</option>
-<option value="blinky_face">blinky_face</option>
-<option value="moon_phase_face">moon_phase_face</option>
-<option value="accelerometer_data_acquisition_face">accelerometer_data_acquisition_face</option>
-<option value="mars_time_face">mars_time_face</option>
-<option value="orrery_face">orrery_face</option>
-<option value="astronomy_face">astronomy_face</option>
-<option value="tomato_face">tomato_face</option>
-<option value="probability_face">probability_face</option>
-<option value="wake_face">wake_face</option>
-<option value="frequency_correction_face">frequency_correction_face</option>
-<option value="alarm_face">alarm_face</option>
-<option value="ratemeter_face">ratemeter_face</option>
+    <!--# include file="available_faces.html" -->
 </select>
 
 <p>
 <button class="action-buttons" id="clear" hidden>Clear</button>
 <input class="action-buttons" type="submit" id="build" value="Build a watch!">
+<div id="spinner" hidden><div class="lds-dual-ring"></div></div>
 
 </form>
 </section>

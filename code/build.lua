@@ -167,7 +167,7 @@ if not exists(dir .. 'completed') or post_args['flush'] then
     assert(render_to_file('success_build.html', dir .. 'index.html', {}))
     update_build_list(dir, faces, secondary_face_index)
   else
-    ngx.log(ngx,WARN, 'Build failed: ' .. tostring(stderr))
+    ngx.log(ngx.WARN, 'Build failed: ' .. tostring(stderr))
     assert(render_to_file('fail_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
   end
 

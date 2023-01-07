@@ -10,7 +10,7 @@ local function render(filename, env)
   end
 
   local s = file:read("*a")
-  
+
   file:close()
   s, err = etlua.render(s, env)
   if err then
@@ -105,6 +105,7 @@ local function generate_build_hash(faces, secondary_face_index)
 end
 
 local function update_build_list(dir, faces, secondary_face_index)
+  -- Read in existing 'previous builds'.
   local previous_builds = '/builds/list.html'
   local count = 0
   -- First, keep the last 30 lines.
@@ -118,10 +119,12 @@ local function update_build_list(dir, faces, secondary_face_index)
     end
   end
   pb_file:close()
+
+  -- Update 'previous builds' with new entry.
   pb_file = assert(io.open(previous_builds, 'w'))
-  assert(render_to_file('build_record.html', pb_file, {dir = dir, faces = faces, secondary_face_index = secondary_face_index}))
+  pb_file:write(assert(render('build_record.html', {dir = dir, faces = faces, secondary_face_index = secondary_face_index})):gsub("\n", ""), "\n")
   for _, line in ipairs(lines) do
-    pb_file:write(line)
+    pb_file:write(line, "\n")
   end
   pb_file:close()
 end

@@ -58,6 +58,7 @@ RUN chown -R www-data:www-data /emcache
 COPY nginx.conf /usr/local/openresty/nginx/conf/
 COPY static static
 RUN sed -n '/#include/{s/#include "\(.*\).h"/  <option value="\1">\1<\/option>/;p}' Sensor-Watch/movement/movement_faces.h > static/available_faces.html
+RUN cd /Sensor-Watch && git rev-parse HEAD > /static/commit_hash
 COPY templates templates
 COPY code code
 RUN sed -n -e '/#include/{s/#include "\(.*\).h"/  \1 = true,/;p}' -e '1i return {' -e ';$a }' Sensor-Watch/movement/movement_faces.h > code/available_faces.lua

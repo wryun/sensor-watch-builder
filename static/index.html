@@ -3,6 +3,8 @@
 
 <head>
 
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <title>Sensor Watch Builder</title>
 
 <script>
@@ -18,12 +20,30 @@ function dragover_handler(ev) {
 function drop_handler(ev) {
   ev.preventDefault()
   const dropped = event.dataTransfer.getData("text/plain")
+  add_option(ev.target, dropped)
+}
+
+function add_option(select_element, text) {
   const el = document.createElement("option")
   el.selected = true
-  el.value = dropped
-  el.append(document.createTextNode(dropped))
-  el.addEventListener("mousedown", (ev) => ev.preventDefault())
-  ev.target.append(el)
+  el.value = text
+  el.append(document.createTextNode(text))
+  el.addEventListener("mousedown", ev => {
+    ev.preventDefault()
+    const secondary_faces_select = document.getElementById("secondary_faces")
+    if (el.parentNode != secondary_faces_select) {
+      el.remove()
+      secondary_faces_select.append(el)
+    } else {
+      el.remove()
+    }
+  })
+  select_element.append(el)
+}
+
+function new_face_click_handler(ev) {
+  ev.preventDefault()
+  add_option(document.getElementById("faces"), ev.target.id)
 }
 
 // Force us not to use the backwards cache
@@ -40,6 +60,7 @@ window.addEventListener("DOMContentLoaded", () => {
     el.draggable = true
     el.innerHTML = option.innerHTML
     el.addEventListener("dragstart", dragstart_handler)
+    el.addEventListener("click", new_face_click_handler)
     available_faces.append(el)
   }
 
@@ -67,7 +88,7 @@ window.addEventListener("DOMContentLoaded", () => {
     submit_button.hidden = true
     clear_button.hidden = true
     spinner.hidden = false
-  });
+  })
 })
 </script>
 
@@ -100,6 +121,27 @@ select {
   padding: 5px;
   margin: 10px;
   font-size: x-large;
+}
+
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 60% 40%;
+  }
+
+  select {
+    font-size: medium;
+  }
+
+  #available_faces > button {
+    font-size: small;
+    max-width: 105px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .action-buttons {
+    font-size: large;
+  }
 }
 
 /* spinner from https://loading.io/css/ */
@@ -146,7 +188,7 @@ Experimental and unofficial. <a href="https://github.com/wryun/sensor-watch-buil
 
 <main>
 <section id="js-section" hidden>
-<h3>Drag faces from here...</h3>
+<h3>Drag or click on faces...</h3>
 <div name="available_faces" id="available_faces" multiple required>
 </div>
 </section>

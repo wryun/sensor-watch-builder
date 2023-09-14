@@ -3,8 +3,12 @@
 set -ue -o pipefail
 
 dir=$1
+shift
 
 cd /Sensor-Watch/movement/make
+
+echo '---- movement_config.h'
+cat "${dir}movement_config.h"
 
 # Don't bothering making most of the .o files
 for build_dir in build build-sim; do
@@ -19,5 +23,6 @@ for build_dir in build build-sim; do
   rm "$dir$build_dir/movement.o"
 done
 
-make BUILD="${dir}build" MOVEMENT_CONFIG="${dir}movement_config.h"
+echo make BUILD="${dir}build" MOVEMENT_CONFIG="${dir}movement_config.h" "$@"
+make BUILD="${dir}build" MOVEMENT_CONFIG="${dir}movement_config.h" "$@"
 EM_CACHE=/emcache emmake make BUILD="${dir}build-sim" MOVEMENT_CONFIG="${dir}movement_config.h"

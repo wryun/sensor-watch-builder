@@ -1,10 +1,18 @@
     <li>
       <a href="<%= dir %>">
+         <% for k, v in pairs(makeargs) do %>
+           <%= k %>=<%= v%>;
+         <% end %>
+         <% for k, v in pairs(defines) do %>
+           <%= k %>=<%= v%>;
+         <% end %>
+        <br>
         <strong>
          <% for _, face in ipairs(faces) do %>
            <%= face %>;
          <% end %>
-         (<%= secondary_face_index %>)</strong>
+         (<%= secondary_face_index %>)
+        </strong>
       </a>
       <br><%= os.date("%c") %>
     </li>

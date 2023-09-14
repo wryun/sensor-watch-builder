@@ -69,10 +69,26 @@ local function normalise_post_arg(arg)
   end
 end
 
+local function sanitise(arg)
+    return arg:gsub("[^%w_]", "")
+end
+
 local function process_post_args(args)
   local errors = {}
   if args['faces'] == nil then
     table.insert(errors, 'No faces provided')
+  end
+
+  local defines = {}
+  local makeargs = {}
+  for k, v in pairs(args) do
+    if k:match('^defgroup') then
+      defines[v] = 1
+    end
+    local res = k:match('^makearg[-]([%u_]+)$')
+    if res then
+      makeargs[res] = sanitise(v)
+    end
   end
 
   local faces = normalise_post_arg(args['faces'])
@@ -94,9 +110,9 @@ local function process_post_args(args)
   end
 
   if #secondary_faces == 0 then
-    return combined_faces, 0
+    return makeargs, defines, combined_faces, 0
   else 
-    return combined_faces, #faces
+    return makeargs, defines, combined_faces, #faces
   end
 end
 
@@ -104,7 +120,7 @@ local function generate_build_hash(faces, secondary_face_index)
   return ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
 end
 
-local function update_build_list(dir, faces, secondary_face_index)
+local function update_build_list(dir, makeargs, defines, faces, secondary_face_index)
   -- Read in existing 'previous builds'.
   local previous_builds = '/builds/list.html'
   local count = 0
@@ -122,18 +138,23 @@ local function update_build_list(dir, faces, secondary_face_index)
 
   -- Update 'previous builds' with new entry.
   pb_file = assert(io.open(previous_builds, 'w'))
-  pb_file:write(assert(render('build_record.html', {dir = dir, faces = faces, secondary_face_index = secondary_face_index})):gsub("\n", ""), "\n")
+  pb_file:write(assert(render('build_record.html', {dir = dir, makeargs = makeargs, defines = defines, faces = faces, secondary_face_index = secondary_face_index})):gsub("\n", ""), "\n")
   for _, line in ipairs(lines) do
     pb_file:write(line, "\n")
   end
   pb_file:close()
 end
 
-local function build(dir, faces, secondary_face_index)
+local function build(dir, makeargs, defines, faces, secondary_face_index)
   assert(shell.run('rm -rf ' .. dir .. ' && mkdir ' .. dir))
-  assert(render_to_file('movement_config.h', dir .. 'movement_config.h', {faces = faces, secondary_face_index = secondary_face_index}))
+  assert(render_to_file('movement_config.h', dir .. 'movement_config.h', {defines = defines, faces = faces, secondary_face_index = secondary_face_index}))
 
-  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec /code/build.sh "]] .. dir .. [["]], nil, 20000)
+  local argslist = {}
+  for k, v in pairs(makeargs) do
+    table.insert(argslist, k .. '=' .. v)
+  end
+
+  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec /code/build.sh "]] .. dir .. [[" ]] .. table.concat(argslist, ' '), nil, 20000)
   if ok == nil then
     error('Internal error trying to start build: ' .. tostring(reason))
   end
@@ -165,7 +186,7 @@ end
 
 
 -- MAIN STUFF
-local faces, secondary_face_index = process_post_args(ngx.req.get_post_args())
+local makeargs, defines, faces, secondary_face_index = process_post_args(ngx.req.get_post_args())
 local dir = '/builds/' .. generate_build_hash(faces, secondary_face_index) .. '/'
 
 if not exists(dir .. 'completed') then
@@ -180,10 +201,10 @@ if not exists(dir .. 'completed') then
       return
     end
 
-    local ok, stdout, stderr = build(dir, faces, secondary_face_index)
+    local ok, stdout, stderr = build(dir, makeargs, defines, faces, secondary_face_index)
     if ok then
-      assert(render_to_file('success_build.html', dir .. 'index.html', {}))
-      update_build_list(dir, faces, secondary_face_index)
+      assert(render_to_file('success_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
+      update_build_list(dir, makeargs, defines, faces, secondary_face_index)
     else
       ngx.log(ngx.WARN, 'Build failed: ' .. tostring(stderr))
       assert(render_to_file('fail_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))

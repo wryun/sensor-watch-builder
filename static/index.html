@@ -202,9 +202,26 @@ Experimental and unofficial. <a href="https://github.com/wryun/sensor-watch-buil
 </section>
 
 <section>
-<h3>Selected faces...</h3>
 
 <form id="build-form" action="/build" method="post">
+
+<h3>Config</h3>
+
+<h5><label for="board-color">Board colour</label></h3>
+<select name="makearg-COLOR" id="board-color" required>
+    <option value="GREEN">Green</option>
+    <option value="RED">Red</option>
+    <option value="BLUE">Blue</option>
+</select>
+
+<h5><label for="signal-tune">Signal tune (hourly)</label></h3>
+<select name="defgroup-SIGNAL" id="signal-tune" required>
+    <option value="SIGNAL_TUNE_DEFAULT">Default</option>
+    <option value="SIGNAL_TUNE_ZELDA_SECRET">Zelda Secret Sound</option>
+    <option value="SIGNAL_TUNE_MARIO_THEME">Mario</option>
+    <option value="SIGNAL_TUNE_KIM_POSSIBLE">Kim Possible</option>
+</select>
+
 <h5><label for="faces">Faces</label></h5>
 <p>
 <select class="facetarget" name="faces" id="faces" multiple required>

@@ -9,6 +9,10 @@ const watch_face_t watch_faces[] = {
 <% end %>
 };
 
+<% for def, val in pairs(defines) do %>
+#define <%- def %> <%- val %>
+<% end %>
+
 #define MOVEMENT_NUM_FACES (sizeof(watch_faces) / sizeof(watch_face_t))
 #define MOVEMENT_SECONDARY_FACE_INDEX <%- secondary_face_index %>
 

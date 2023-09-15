@@ -45,7 +45,9 @@ COPY *.patch ./
 RUN for f in *.patch; do patch -p1 < "$f"; done
 
 RUN emmake make -C movement/make 'BUILD=build-sim'
-RUN make -C movement/make
+RUN make -C movement/make 'BUILD=build-RED' COLOR=RED
+RUN make -C movement/make 'BUILD=build-GREEN' COLOR=GREEN
+RUN make -C movement/make 'BUILD=build-BLUE' COLOR=BLUE
 
 COPY *.afterpatch ./
 RUN for f in *.afterpatch; do patch -p1 < "$f"; done

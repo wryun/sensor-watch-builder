@@ -154,7 +154,7 @@ local function build(dir, makeargs, defines, faces, secondary_face_index)
     table.insert(argslist, k .. '=' .. v)
   end
 
-  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec /code/build.sh "]] .. dir .. [[" ]] .. table.concat(argslist, ' '), nil, 20000)
+  local ok, stdout, stderr, reason, status = shell.run([[PATH=/bin:/usr/bin exec /code/build.sh "]] .. dir .. [[" ]] .. makeargs['COLOR'] .. ' ' .. table.concat(argslist, ' '), nil, 20000)
   if ok == nil then
     error('Internal error trying to start build: ' .. tostring(reason))
   end
@@ -203,7 +203,7 @@ if not exists(dir .. 'completed') then
 
     local ok, stdout, stderr = build(dir, makeargs, defines, faces, secondary_face_index)
     if ok then
-      assert(render_to_file('success_build.html', dir .. 'index.html', {stdout = stdout, stderr = stderr}))
+      assert(render_to_file('success_build.html', dir .. 'index.html', {makeargs = makeargs, stdout = stdout, stderr = stderr}))
       update_build_list(dir, makeargs, defines, faces, secondary_face_index)
     else
       ngx.log(ngx.WARN, 'Build failed: ' .. tostring(stderr))

@@ -28,4 +28,4 @@ done
 
 echo make BUILD="${dir}build-${color}" MOVEMENT_CONFIG="${dir}movement_config.h" "$@"
 make BUILD="${dir}build-${color}" MOVEMENT_CONFIG="${dir}movement_config.h" "$@"
-EM_CACHE=/emcache emmake make BUILD="${dir}build-sim" MOVEMENT_CONFIG="${dir}movement_config.h"
+emmake make BUILD="${dir}build-sim" MOVEMENT_CONFIG="${dir}movement_config.h" "$@"

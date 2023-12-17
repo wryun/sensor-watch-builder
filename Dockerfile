@@ -1,4 +1,4 @@
-FROM openresty/openresty:bullseye
+FROM openresty/openresty:bookworm
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -34,8 +34,11 @@ RUN apt-get update && \
   apt-get install -y --no-install-recommends emscripten && \
   rm -rf /var/lib/apt/lists/*
 
-ENV EM_CACHE /emcache
-RUN emcc --generate-config
+# Bookworm seems to setup a decent FROZEN_CACHE which means
+# this is no longer necessary for decent perf.
+#ENV EM_CACHE /emcache
+#ENV EM_CONFIG /emconfig
+#RUN emcc --generate-config
 
 RUN git clone https://github.com/joeycastillo/Sensor-Watch.git
 
@@ -44,7 +47,7 @@ WORKDIR Sensor-Watch/
 COPY *.patch ./
 RUN for f in *.patch; do patch -p1 < "$f"; done
 
-RUN emmake make -C movement/make 'BUILD=build-sim'
+RUN emmake make -C movement/make 'BUILD=build-sim' 'COLOR=RED'
 RUN make -C movement/make 'BUILD=build-RED' COLOR=RED
 RUN make -C movement/make 'BUILD=build-GREEN' COLOR=GREEN
 RUN make -C movement/make 'BUILD=build-BLUE' COLOR=BLUE
@@ -55,8 +58,8 @@ RUN for f in *.afterpatch; do patch -p1 < "$f"; done
 WORKDIR /
 RUN mkdir /builds
 RUN touch /builds/list.html
+#RUN chown -R www-data:www-data /emcache
 RUN chown -R www-data:www-data /builds
-RUN chown -R www-data:www-data /emcache
 COPY nginx.conf /usr/local/openresty/nginx/conf/
 COPY static static
 RUN sed -n '/#include/{s/#include "\(.*\).h"/  <option value="\1">\1<\/option>/;p}' Sensor-Watch/movement/movement_faces.h > static/available_faces.html

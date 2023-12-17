@@ -116,8 +116,15 @@ local function process_post_args(args)
   end
 end
 
-local function generate_build_hash(faces, secondary_face_index)
-  return ngx.md5(table.concat(faces, ':') .. ':' .. secondary_face_index)
+local function generate_build_hash(makeargs, defines, faces, secondary_face_index)
+  local s = ''
+  for k, v in pairs(makeargs) do
+    s = s .. k .. ':' .. v .. ':'
+  end
+  for k, v in pairs(defines) do
+    s = s .. k .. ':' .. v .. ':'
+  end
+  return ngx.md5(s .. table.concat(faces, ':') .. ':' .. secondary_face_index)
 end
 
 local function update_build_list(dir, makeargs, defines, faces, secondary_face_index)
@@ -187,7 +194,7 @@ end
 
 -- MAIN STUFF
 local makeargs, defines, faces, secondary_face_index = process_post_args(ngx.req.get_post_args())
-local dir = '/builds/' .. generate_build_hash(faces, secondary_face_index) .. '/'
+local dir = '/builds/' .. generate_build_hash(makeargs, defines, faces, secondary_face_index) .. '/'
 
 if not exists(dir .. 'completed') then
   -- only one build at a time, please.

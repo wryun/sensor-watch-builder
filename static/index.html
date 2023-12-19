@@ -23,21 +23,25 @@ function drop_handler(ev) {
   add_option(ev.target, dropped)
 }
 
+function option_handler(ev, el) {
+  ev.preventDefault()
+
+  const secondary_faces_select = document.getElementById("secondary_faces")
+  if (el.parentNode != secondary_faces_select) {
+    el.remove()
+    secondary_faces_select.append(el)
+  } else {
+    el.remove()
+  }
+}
+
 function add_option(select_element, text) {
   const el = document.createElement("option")
   el.selected = true
   el.value = text
   el.append(document.createTextNode(text))
-  el.addEventListener("mousedown", ev => {
-    ev.preventDefault()
-    const secondary_faces_select = document.getElementById("secondary_faces")
-    if (el.parentNode != secondary_faces_select) {
-      el.remove()
-      secondary_faces_select.append(el)
-    } else {
-      el.remove()
-    }
-  })
+  el.addEventListener("mousedown", ev => option_handler(ev, el))
+  el.addEventListener("touchstart", ev => option_handler(ev, el))
   select_element.append(el)
 }
 
@@ -48,7 +52,7 @@ function new_face_click_handler(ev) {
 
 // Force us not to use the backwards cache
 // (to reset spinner and selected items on new build).
-window.addEventListener("unload", () => {});
+window.addEventListener("unload", () => {})
 
 window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("js-section").hidden = false

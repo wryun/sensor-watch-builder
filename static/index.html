@@ -58,14 +58,35 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("js-section").hidden = false
   const available_faces = document.getElementById("available_faces")
 
+  let category = null;
   for (const option of document.querySelectorAll("#faces > option")) {
-    const el = document.createElement("button")
-    el.id = option.value
-    el.draggable = true
-    el.innerHTML = option.innerHTML
-    el.addEventListener("dragstart", dragstart_handler)
-    el.addEventListener("click", new_face_click_handler)
-    available_faces.append(el)
+    if (option.dataset.category != category) {
+      category = option.dataset.category
+      const el = document.createElement("h3")
+      el.innerText = category
+      available_faces.append(el)
+    }
+
+    const span = document.createElement("span")
+    span.innerText = " "
+    available_faces.append(span);
+
+    {
+      const el = document.createElement("button")
+      el.id = option.value
+      el.draggable = true
+      el.innerHTML = option.innerHTML
+      el.addEventListener("dragstart", dragstart_handler)
+      el.addEventListener("click", new_face_click_handler)
+      span.append(el)
+    }
+    
+    {
+      const el = document.createElement("a")
+      el.href = option.dataset.url
+      el.innerText = "?"
+      span.append(el)
+    }
   }
 
   for (const option of document.querySelectorAll(".facetarget > option")) {
@@ -107,10 +128,10 @@ select {
   font-size: large;
 }
 
-#available_faces > button {
-  padding: 5px;
-  margin: 5px;
-  font-size: large;
+#available_faces button {
+  padding: 3px;
+  margin: 3px;
+  font-size: medium;
 }
 
 #faces {
@@ -181,7 +202,6 @@ select {
     transform: rotate(360deg);
   }
 }
-</style>
 
 </style>
 

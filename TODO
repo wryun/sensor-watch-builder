@@ -1,3 +1,4 @@
+- categorise faces (i.e. clocks, complications, ...)
 - make everything draggable; add target boxes
 - force regeneration on clone (just specify hash?)
 - auto-trigger redeploy on Sensor-Watch updates (how?)

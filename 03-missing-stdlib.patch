@@ -1,0 +1,12 @@
+diff --git a/movement/shell.c b/movement/shell.c
+index 8f146e5..5135385 100644
+--- a/movement/shell.c
++++ b/movement/shell.c
+@@ -30,6 +30,7 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <stdlib.h>
+ 
+ #if __EMSCRIPTEN__
+ #include <emscripten.h>
